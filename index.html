@@ -55,7 +55,7 @@
           <button type="button" class="link-btn" id="forgotBtn">Quên mật khẩu?</button>
         </div>
         <button class="primary-btn full" type="submit">Đăng nhập</button>
-        <p class="security-note">🔒 Đây là bản demo. Không nhập mật khẩu ngân hàng thật.</p>
+        <p class="security-note">🔒 Đây là bản demo. Không nhập mật khẩu ngân hàng thật. Có thể mở tối đa 5 tài khoản cùng lúc.</p>
       </form>
     </div>
   </section>
@@ -79,7 +79,8 @@
 
       <div class="sidebar-footer">
         <div class="secure-chip"><span>●</span> Phiên demo bảo mật</div>
-        <button id="logoutBtn" class="logout-btn" type="button">Đăng xuất</button>
+        <button id="manageSessionsBtn" class="session-manager-btn" type="button"><span>⇄ Tài khoản đang mở</span><b id="sidebarSessionCount">1/5</b></button>
+        <button id="logoutBtn" class="logout-btn" type="button">Đăng xuất tài khoản này</button>
       </div>
     </aside>
 
@@ -95,10 +96,11 @@
         <div class="top-actions">
           <button id="themeBtn" class="icon-btn" type="button" title="Chế độ tối">☾</button>
           <button id="notificationBtn" class="icon-btn badge-wrap" type="button" title="Thông báo">♢<span class="badge">3</span></button>
-          <div class="user-chip">
+          <button id="accountSwitcherBtn" class="user-chip account-switcher-btn" type="button" title="Chuyển tài khoản">
             <div class="avatar" id="topAvatar">N</div>
             <div><b id="topUserName">NeoBank</b><span id="topUserRole">Tài khoản demo</span></div>
-          </div>
+            <span class="active-session-count" id="activeSessionCount">1/5</span>
+          </button>
         </div>
       </header>
 
@@ -219,6 +221,7 @@
           <div class="admin-stats">
             <article class="stat-card"><span>Tổng người dùng</span><h3 id="adminUserCount">0</h3><p class="muted">Không tính tài khoản admin</p></article>
             <article class="stat-card"><span>Đang hoạt động</span><h3 id="adminActiveCount">0</h3><p class="positive">Tài khoản có thể đăng nhập</p></article>
+            <article class="stat-card"><span>Phiên đang mở</span><h3 id="adminSessionCount">0/5</h3><p class="muted">Trên trình duyệt hiện tại</p></article>
             <article class="stat-card"><span>Tổng số dư hệ thống</span><h3 id="adminTotalBalance">0 ₫</h3><p class="muted">Thanh toán + tiết kiệm</p></article>
           </div>
 
@@ -232,7 +235,7 @@
             </div>
             <div class="table-wrap">
               <table class="admin-table">
-                <thead><tr><th>Người dùng</th><th>Số tài khoản</th><th>Thanh toán</th><th>Tiết kiệm</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                <thead><tr><th>Người dùng</th><th>Số tài khoản</th><th>Thanh toán</th><th>Tiết kiệm</th><th>Trạng thái</th><th>Phiên</th><th>Thao tác</th></tr></thead>
                 <tbody id="adminUsersTable"></tbody>
               </table>
             </div>

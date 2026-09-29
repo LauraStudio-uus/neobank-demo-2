@@ -10,9 +10,13 @@ const STORAGE = {
   users: 'neobank_users_v3',
   audit: 'neobank_admin_audit_v3',
   theme: 'neobank_theme',
-  rememberSession: 'neobank_session_user',
-  session: 'neobank_session_user_tmp'
+  rememberedSessions: 'neobank_multi_sessions_v4',
+  tempSessions: 'neobank_multi_sessions_tmp_v4',
+  activeSession: 'neobank_active_session_v4',
+  legacyRememberSession: 'neobank_session_user',
+  legacySession: 'neobank_session_user_tmp'
 };
+const MAX_ACTIVE_SESSIONS = 5;
 
 const DEFAULT_TRANSACTIONS = [
   {id:1,name:'Lương tháng 09',note:'Công ty Aurora Creative',amount:32500000,type:'in',date:'29/09/2026 09:05',icon:'↙'},
@@ -81,10 +85,109 @@ const state = {
 
 function persistUsers(){ localStorage.setItem(STORAGE.users, JSON.stringify(state.users)); }
 function persistAudit(){ localStorage.setItem(STORAGE.audit, JSON.stringify(state.audit)); }
-function currentSessionId(){ return sessionStorage.getItem(STORAGE.session) || localStorage.getItem(STORAGE.rememberSession); }
+function readIds(storage, key){
+  const value=parseJSON(storage.getItem(key), []);
+  return Array.isArray(value) ? value.filter(v=>typeof v==='string') : [];
+}
+function writeIds(storage, key, ids){ storage.setItem(key, JSON.stringify([...new Set(ids)])); }
+function rememberedSessionIds(){ return readIds(localStorage, STORAGE.rememberedSessions); }
+function tempSessionIds(){ return readIds(sessionStorage, STORAGE.tempSessions); }
+function sessionAllowed(user){ return !!user && (user.role==='admin' || user.status==='active'); }
+function activeSessionIds(){
+  const validIds=new Set(state.users.filter(sessionAllowed).map(u=>u.id));
+  const merged=[...rememberedSessionIds(),...tempSessionIds()].filter(id=>validIds.has(id));
+  return [...new Set(merged)].slice(0,MAX_ACTIVE_SESSIONS);
+}
+function persistSessionLists(remembered, temp){
+  const uniqueRemembered=[...new Set(remembered)].slice(0,MAX_ACTIVE_SESSIONS);
+  const rememberedSet=new Set(uniqueRemembered);
+  const uniqueTemp=[...new Set(temp)].filter(id=>!rememberedSet.has(id)).slice(0,Math.max(0,MAX_ACTIVE_SESSIONS-uniqueRemembered.length));
+  writeIds(localStorage, STORAGE.rememberedSessions, uniqueRemembered);
+  writeIds(sessionStorage, STORAGE.tempSessions, uniqueTemp);
+}
+function migrateLegacySession(){
+  const remembered=rememberedSessionIds();
+  const temp=tempSessionIds();
+  const legacyRemember=localStorage.getItem(STORAGE.legacyRememberSession);
+  const legacyTemp=sessionStorage.getItem(STORAGE.legacySession);
+  const all=[...remembered,...temp];
+  if(legacyRemember && !all.includes(legacyRemember) && state.users.some(u=>u.id===legacyRemember)) remembered.push(legacyRemember);
+  if(legacyTemp && !all.includes(legacyTemp) && state.users.some(u=>u.id===legacyTemp)) temp.push(legacyTemp);
+  persistSessionLists(remembered,temp);
+  localStorage.removeItem(STORAGE.legacyRememberSession);
+  sessionStorage.removeItem(STORAGE.legacySession);
+}
+function pruneSessions(){
+  const valid=new Set(state.users.filter(sessionAllowed).map(u=>u.id));
+  const remembered=rememberedSessionIds().filter(id=>valid.has(id));
+  const temp=tempSessionIds().filter(id=>valid.has(id));
+  persistSessionLists(remembered,temp);
+  const ids=activeSessionIds();
+  const current=sessionStorage.getItem(STORAGE.activeSession);
+  if(current && !ids.includes(current)) sessionStorage.removeItem(STORAGE.activeSession);
+  return ids;
+}
+function currentSessionId(){
+  const ids=activeSessionIds();
+  let current=sessionStorage.getItem(STORAGE.activeSession);
+  if(!current || !ids.includes(current)){
+    current=ids[0] || null;
+    if(current) sessionStorage.setItem(STORAGE.activeSession,current);
+    else sessionStorage.removeItem(STORAGE.activeSession);
+  }
+  return current;
+}
 function currentUser(){ return state.users.find(u=>u.id===currentSessionId()) || null; }
 function userById(id){ return state.users.find(u=>u.id===id); }
 function isAdmin(){ return currentUser()?.role === 'admin'; }
+function isSessionOpen(userId){ return activeSessionIds().includes(userId); }
+function addActiveSession(userId, remember=false){
+  const user=userById(userId);
+  if(!user) return {ok:false,reason:'missing'};
+  if(!sessionAllowed(user)) return {ok:false,reason:'locked'};
+  pruneSessions();
+  let remembered=rememberedSessionIds();
+  let temp=tempSessionIds();
+  const existing=[...new Set([...remembered,...temp])];
+  if(!existing.includes(userId) && existing.length>=MAX_ACTIVE_SESSIONS) return {ok:false,reason:'limit'};
+  if(remember){
+    temp=temp.filter(id=>id!==userId);
+    if(!remembered.includes(userId)) remembered.push(userId);
+  }else if(!remembered.includes(userId) && !temp.includes(userId)) temp.push(userId);
+  persistSessionLists(remembered,temp);
+  sessionStorage.setItem(STORAGE.activeSession,userId);
+  return {ok:true,existing:existing.includes(userId)};
+}
+function removeActiveSession(userId){
+  persistSessionLists(rememberedSessionIds().filter(id=>id!==userId),tempSessionIds().filter(id=>id!==userId));
+  const active=sessionStorage.getItem(STORAGE.activeSession);
+  const ids=activeSessionIds();
+  if(active===userId || !ids.includes(active)){
+    if(ids[0]) sessionStorage.setItem(STORAGE.activeSession,ids[0]);
+    else sessionStorage.removeItem(STORAGE.activeSession);
+  }
+  return ids;
+}
+function clearAllSessions(){
+  localStorage.removeItem(STORAGE.rememberedSessions);
+  sessionStorage.removeItem(STORAGE.tempSessions);
+  sessionStorage.removeItem(STORAGE.activeSession);
+}
+function switchSession(userId){
+  const user=userById(userId);
+  if(!user || !isSessionOpen(userId)) return false;
+  if(user.role==='user' && user.status==='locked'){
+    removeActiveSession(userId);
+    toast('Tài khoản đã bị khóa nên phiên đăng nhập đã được thu hồi','error');
+    return false;
+  }
+  sessionStorage.setItem(STORAGE.activeSession,userId);
+  state.hideBalance=false;
+  enterApp();
+  return true;
+}
+migrateLegacySession();
+pruneSessions();
 
 function escapeHtml(value=''){
   return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
@@ -187,6 +290,7 @@ function renderProfile(){
 function renderIdentity(){
   const user=currentUser();
   if(!user) return;
+  renderSessionCounters();
   const first=(user.name||'N').trim().charAt(0).toUpperCase();
   $('#topAvatar').textContent=first;
   $('#topUserName').textContent=user.name;
@@ -223,6 +327,7 @@ function renderAdmin(){
   const users=state.users.filter(u=>u.role==='user');
   $('#adminUserCount').textContent=users.length;
   $('#adminActiveCount').textContent=users.filter(u=>u.status==='active').length;
+  if($('#adminSessionCount')) $('#adminSessionCount').textContent=`${activeSessionIds().length}/${MAX_ACTIVE_SESSIONS}`;
   $('#adminTotalBalance').textContent=money(users.reduce((sum,u)=>sum+Number(u.checking||0)+Number(u.savings||0),0));
 
   const rows=filteredAdminUsers().map(u=>`<tr>
@@ -231,11 +336,101 @@ function renderAdmin(){
     <td class="money-cell">${money(u.checking)}</td>
     <td class="money-cell">${money(u.savings)}</td>
     <td><span class="status-pill ${u.status}">${u.status==='active'?'Hoạt động':'Đã khóa'}</span></td>
+    <td><span class="session-pill ${isSessionOpen(u.id)?'online':''}">${isSessionOpen(u.id)?'● Đang mở':'Chưa mở'}</span></td>
     <td><div class="table-actions"><button class="mini-btn" data-admin-action="balance" data-user-id="${u.id}">Số dư</button><button class="mini-btn" data-admin-action="edit" data-user-id="${u.id}">Sửa</button><button class="mini-btn ${u.status==='active'?'danger-text':'success-text'}" data-admin-action="status" data-user-id="${u.id}">${u.status==='active'?'Khóa':'Mở'}</button></div></td>
   </tr>`).join('');
-  $('#adminUsersTable').innerHTML=rows || '<tr><td colspan="6"><div class="empty-state">Không tìm thấy tài khoản phù hợp.</div></td></tr>';
+  $('#adminUsersTable').innerHTML=rows || '<tr><td colspan="7"><div class="empty-state">Không tìm thấy tài khoản phù hợp.</div></td></tr>';
 
   $('#adminAuditList').innerHTML=state.audit.length ? state.audit.slice(0,30).map(log=>`<div class="audit-item"><div class="audit-dot">${escapeHtml(log.action.includes('Số dư')?'₫':'✓')}</div><div><b>${escapeHtml(log.action)}</b><span>${escapeHtml(log.actor)} → ${escapeHtml(log.targetName)}${log.details?` · ${escapeHtml(log.details)}`:''}</span></div><time>${escapeHtml(log.date)}</time></div>`).join('') : '<p class="empty-state">Chưa có thao tác quản trị nào.</p>';
+}
+
+function renderSessionCounters(){
+  const count=activeSessionIds().length;
+  if($('#activeSessionCount')) $('#activeSessionCount').textContent=`${count}/${MAX_ACTIVE_SESSIONS}`;
+  if($('#sidebarSessionCount')) $('#sidebarSessionCount').textContent=`${count}/${MAX_ACTIVE_SESSIONS}`;
+  if($('#adminSessionCount') && isAdmin()) $('#adminSessionCount').textContent=`${count}/${MAX_ACTIVE_SESSIONS}`;
+}
+
+function sessionManagerHtml(){
+  const ids=activeSessionIds();
+  const current=currentSessionId();
+  const items=ids.map(id=>{
+    const user=userById(id);
+    if(!user) return '';
+    const currentClass=id===current?' current':'';
+    const locked=user.role==='user' && user.status==='locked';
+    return `<div class="session-item${currentClass}">
+      <div class="session-avatar">${escapeHtml((user.name||'N').trim().charAt(0).toUpperCase())}</div>
+      <div class="session-info"><b>${escapeHtml(user.name)}</b><span>${escapeHtml(user.email)}</span><div class="session-tags"><span class="session-tag ${user.role==='admin'?'admin':''}">${user.role==='admin'?'ADMIN':'USER'}</span>${id===current?'<span class="session-tag current">ĐANG DÙNG</span>':''}${locked?'<span class="session-tag">ĐÃ KHÓA</span>':''}</div></div>
+      <div class="session-actions">${id!==current?`<button type="button" data-switch-session="${id}" ${locked?'disabled':''}>Chuyển</button>`:''}<button type="button" class="remove-session" data-remove-session="${id}">Đăng xuất</button></div>
+    </div>`;
+  }).join('');
+  const full=ids.length>=MAX_ACTIVE_SESSIONS;
+  return `<span class="eyebrow">ĐA TÀI KHOẢN</span><h3>Phiên tài khoản</h3><p>Chuyển nhanh giữa các tài khoản đã đăng nhập trên trình duyệt này.</p><div class="session-manager-summary"><span>Đang hoạt động</span><b>${ids.length}/${MAX_ACTIVE_SESSIONS} tài khoản</b></div><div class="session-list">${items || '<p class="empty-state">Chưa có tài khoản nào.</p>'}</div><div class="add-account-box">${full?'<div class="session-full-note">Bạn đã đạt giới hạn 5 tài khoản. Hãy đăng xuất một tài khoản trước khi thêm tài khoản mới.</div>':'<button id="showAddAccountBtn" class="primary-btn full" type="button">+ Đăng nhập thêm tài khoản</button>'}<button id="logoutAllSessionsBtn" class="secondary-btn full" type="button" style="margin-top:10px">Đăng xuất tất cả</button></div>`;
+}
+
+function openSessionManager(){
+  openModal(sessionManagerHtml(),true);
+  bindSessionManagerActions();
+}
+
+function bindSessionManagerActions(){
+  $$('[data-switch-session]', $('#modalContent')).forEach(btn=>btn.onclick=()=>{
+    const user=userById(btn.dataset.switchSession);
+    if(!user) return;
+    if(switchSession(user.id)){
+      closeModal();
+      toast(`Đã chuyển sang ${user.name}`);
+    }
+  });
+  $$('[data-remove-session]', $('#modalContent')).forEach(btn=>btn.onclick=()=>{
+    const removedId=btn.dataset.removeSession;
+    const wasCurrent=removedId===currentSessionId();
+    removeActiveSession(removedId);
+    renderSessionCounters();
+    if(!activeSessionIds().length){
+      closeModal();
+      enterApp();
+      toast('Đã đăng xuất tài khoản cuối cùng');
+      return;
+    }
+    if(wasCurrent){
+      closeModal();
+      enterApp();
+      toast('Đã đăng xuất và chuyển sang tài khoản khác');
+    }else{
+      openSessionManager();
+      if(isAdmin()) renderAdmin();
+      toast('Đã đăng xuất tài khoản');
+    }
+  });
+  const addBtn=$('#showAddAccountBtn');
+  if(addBtn) addBtn.onclick=openAddAccountLogin;
+  const allBtn=$('#logoutAllSessionsBtn');
+  if(allBtn) allBtn.onclick=()=>{
+    clearAllSessions();
+    closeModal();
+    enterApp();
+    toast('Đã đăng xuất tất cả tài khoản');
+  };
+}
+
+function openAddAccountLogin(){
+  if(activeSessionIds().length>=MAX_ACTIVE_SESSIONS){ toast('Đã đạt giới hạn 5 tài khoản','error'); return; }
+  openModal(`<span class="eyebrow">THÊM TÀI KHOẢN</span><h3>Đăng nhập tài khoản khác</h3><p>Tài khoản hiện tại vẫn tiếp tục hoạt động. Bạn có thể mở tối đa ${MAX_ACTIVE_SESSIONS} tài khoản.</p><div class="inline-login-grid"><label>Email<input id="addAccountEmail" type="email" placeholder="user@neobank.vn" autocomplete="username"></label><label>Mật khẩu<input id="addAccountPassword" type="password" placeholder="••••••" autocomplete="current-password"></label></div><label class="check" style="margin-top:12px"><input id="addAccountRemember" type="checkbox" checked> Ghi nhớ tài khoản này</label><div class="modal-actions"><button class="secondary-btn" id="backToSessionsBtn" type="button">Quay lại</button><button class="primary-btn" id="confirmAddAccountBtn" type="button">Đăng nhập thêm</button></div>`,true);
+  $('#backToSessionsBtn').onclick=openSessionManager;
+  $('#confirmAddAccountBtn').onclick=()=>{
+    const email=$('#addAccountEmail').value.trim().toLowerCase();
+    const password=$('#addAccountPassword').value;
+    const user=state.users.find(u=>u.email.toLowerCase()===email && u.password===password);
+    if(!user){ toast('Sai email hoặc mật khẩu demo','error'); return; }
+    if(user.role==='user' && user.status==='locked'){ toast('Tài khoản này đang bị admin khóa','error'); return; }
+    const result=addActiveSession(user.id,$('#addAccountRemember').checked);
+    if(!result.ok && result.reason==='limit'){ toast('Đã đạt giới hạn 5 tài khoản','error'); return; }
+    closeModal();
+    enterApp();
+    toast(result.existing?`Đã chuyển sang ${user.name}`:`Đã thêm ${user.name}`);
+  };
 }
 
 function renderAll(){
@@ -289,10 +484,7 @@ function enterApp(){
 
 const existingSession=currentSessionId();
 if(existingSession && currentUser()) enterApp();
-else {
-  localStorage.removeItem(STORAGE.rememberSession);
-  sessionStorage.removeItem(STORAGE.session);
-}
+else enterApp();
 
 $('#loginForm').addEventListener('submit',e=>{
   e.preventDefault();
@@ -301,22 +493,24 @@ $('#loginForm').addEventListener('submit',e=>{
   const user=state.users.find(u=>u.email.toLowerCase()===email && u.password===password);
   if(!user){ toast('Sai email hoặc mật khẩu demo','error'); return; }
   if(user.role==='user' && user.status==='locked'){ toast('Tài khoản này đang bị admin khóa','error'); return; }
-  localStorage.removeItem(STORAGE.rememberSession);
-  sessionStorage.removeItem(STORAGE.session);
-  if($('#rememberMe').checked) localStorage.setItem(STORAGE.rememberSession,user.id);
-  else sessionStorage.setItem(STORAGE.session,user.id);
+  const result=addActiveSession(user.id,$('#rememberMe').checked);
+  if(!result.ok && result.reason==='limit'){ toast('Đã đạt giới hạn 5 tài khoản đang hoạt động','error'); return; }
   enterApp();
-  toast(user.role==='admin'?'Đăng nhập trang quản trị thành công':'Đăng nhập thành công');
+  toast(result.existing?`Đã chuyển sang ${user.name}`:(user.role==='admin'?'Đăng nhập trang quản trị thành công':'Đăng nhập thành công'));
 });
 
-$('#forgotBtn').onclick=()=>openModal(`<span class="eyebrow">TÀI KHOẢN DEMO</span><h3>Thông tin đăng nhập</h3><p>User mặc định: <b>demo@neobank.vn</b> / <b>123456</b><br>Admin mặc định: <b>admin@neobank.vn</b> / <b>admin123</b>.</p><div class="modal-actions"><button class="primary-btn" id="closeInfoBtn">Đã hiểu</button></div>`);
+$('#forgotBtn').onclick=()=>openModal(`<span class="eyebrow">TÀI KHOẢN DEMO</span><h3>Thông tin đăng nhập</h3><p>User mặc định: <b>demo@neobank.vn</b> / <b>123456</b><br>Admin mặc định: <b>admin@neobank.vn</b> / <b>admin123</b>.<br>Bạn có thể mở tối đa <b>${MAX_ACTIVE_SESSIONS}</b> tài khoản cùng lúc.</p><div class="modal-actions"><button class="primary-btn" id="closeInfoBtn">Đã hiểu</button></div>`);
 document.addEventListener('click',e=>{ if(e.target.id==='closeInfoBtn') closeModal(); });
 
 $('#logoutBtn').onclick=()=>{
-  localStorage.removeItem(STORAGE.rememberSession);
-  sessionStorage.removeItem(STORAGE.session);
-  location.reload();
+  const user=currentUser();
+  if(!user) return;
+  removeActiveSession(user.id);
+  enterApp();
+  toast(activeSessionIds().length?'Đã đăng xuất và chuyển sang tài khoản khác':'Đã đăng xuất');
 };
+$('#accountSwitcherBtn').onclick=openSessionManager;
+$('#manageSessionsBtn').onclick=openSessionManager;
 
 $$('.nav-item').forEach(btn=>btn.onclick=()=>go(btn.dataset.page));
 $$('[data-go]').forEach(btn=>btn.onclick=()=>go(btn.dataset.go));
@@ -413,10 +607,10 @@ document.addEventListener('click',e=>{
     persistUsers(); persistAudit();
     localStorage.removeItem('neobank_checking');
     localStorage.removeItem('neobank_transactions');
+    pruneSessions();
     closeModal();
     toast('Đã khôi phục dữ liệu demo');
-    renderAll();
-    go(isAdmin()?'accounts':'dashboard');
+    enterApp();
   }
 });
 
@@ -508,7 +702,9 @@ $('#adminUsersTable').addEventListener('click',e=>{
     openModal(`<span class="eyebrow">ADMIN</span><h3>${next==='locked'?'Khóa':'Mở khóa'} tài khoản?</h3><p>${escapeHtml(user.name)} · ${escapeHtml(user.email)}</p><div class="modal-actions"><button class="secondary-btn" id="cancelStatus">Hủy</button><button class="${next==='locked'?'danger-btn':'primary-btn'}" id="confirmStatus">${next==='locked'?'Khóa tài khoản':'Mở khóa'}</button></div>`);
     $('#cancelStatus').onclick=closeModal;
     $('#confirmStatus').onclick=()=>{
-      user.status=next; persistUsers(); addAudit(next==='locked'?'Khóa tài khoản':'Mở khóa tài khoản',user); closeModal(); renderAdmin(); toast(next==='locked'?'Đã khóa tài khoản':'Đã mở khóa tài khoản');
+      user.status=next;
+      if(next==='locked') removeActiveSession(user.id);
+      persistUsers(); addAudit(next==='locked'?'Khóa tài khoản':'Mở khóa tài khoản',user,next==='locked'?'Đã thu hồi phiên đăng nhập trên trình duyệt demo':''); closeModal(); renderSessionCounters(); renderAdmin(); toast(next==='locked'?'Đã khóa tài khoản và thu hồi phiên đăng nhập':'Đã mở khóa tài khoản');
     };
   }
 });
