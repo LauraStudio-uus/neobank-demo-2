@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="NeoBank - Ứng dụng ngân hàng số demo" />
+  <title>NeoBank — Ngân hàng số</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <section id="loginScreen" class="login-screen">
+    <div class="login-visual">
+      <div class="brand brand-light">
+        <div class="brand-mark">N</div>
+        <div><strong>NeoBank</strong><span>Digital Banking</span></div>
+      </div>
+      <div class="hero-copy">
+        <span class="eyebrow">NGÂN HÀNG SỐ THẾ HỆ MỚI</span>
+        <h1>Quản lý tài chính đơn giản, an toàn và trực quan.</h1>
+        <p>Ứng dụng demo mô phỏng trải nghiệm ngân hàng hiện đại cho mục đích học tập và phát triển giao diện.</p>
+        <div class="hero-stats">
+          <div><b>24/7</b><span>Truy cập tài khoản</span></div>
+          <div><b>Instant</b><span>Chuyển tiền mô phỏng</span></div>
+          <div><b>100%</b><span>Dữ liệu cục bộ</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-panel">
+      <button id="loginThemeBtn" class="icon-btn login-theme" type="button" aria-label="Đổi giao diện">☾</button>
+      <form id="loginForm" class="login-card">
+        <div class="mobile-brand">
+          <div class="brand-mark">N</div><strong>NeoBank</strong>
+        </div>
+        <span class="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
+        <h2>Đăng nhập NeoBank</h2>
+        <p class="muted login-demo-note">User: <b>demo@neobank.vn</b> / <b>123456</b><br>Admin: <b>admin@neobank.vn</b> / <b>admin123</b></p>
+
+        <label>Email
+          <input id="emailInput" type="email" value="demo@neobank.vn" autocomplete="username" required />
+        </label>
+        <label>Mật khẩu
+          <div class="password-wrap">
+            <input id="passwordInput" type="password" value="123456" autocomplete="current-password" required minlength="6" />
+            <button id="togglePassword" type="button" class="text-btn">Hiện</button>
+          </div>
+        </label>
+        <div class="login-row">
+          <label class="check"><input id="rememberMe" type="checkbox" checked /> Ghi nhớ đăng nhập</label>
+          <button type="button" class="link-btn" id="forgotBtn">Quên mật khẩu?</button>
+        </div>
+        <button class="primary-btn full" type="submit">Đăng nhập</button>
+        <p class="security-note">🔒 Đây là bản demo. Không nhập mật khẩu ngân hàng thật.</p>
+      </form>
+    </div>
+  </section>
+
+  <main id="appShell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">N</div>
+        <div><strong>NeoBank</strong><span>Digital Banking</span></div>
+      </div>
+
+      <nav class="side-nav" id="sideNav">
+        <button class="nav-item active role-user" data-page="dashboard"><span>◫</span> Tổng quan</button>
+        <button class="nav-item role-user" data-page="transfer"><span>↗</span> Chuyển tiền</button>
+        <button class="nav-item role-user" data-page="transactions"><span>↕</span> Giao dịch</button>
+        <button class="nav-item role-user" data-page="cards"><span>▱</span> Thẻ</button>
+        <button class="nav-item role-user" data-page="savings"><span>◎</span> Tiết kiệm</button>
+        <button class="nav-item role-admin hidden" data-page="accounts"><span>♙</span> Tài khoản người dùng</button>
+        <button class="nav-item" data-page="settings"><span>⚙</span> Cài đặt</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="secure-chip"><span>●</span> Phiên demo bảo mật</div>
+        <button id="logoutBtn" class="logout-btn" type="button">Đăng xuất</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="menuBtn" class="icon-btn menu-btn" type="button">☰</button>
+          <div>
+            <span class="muted small" id="todayLabel"></span>
+            <h2 id="pageTitle">Tổng quan</h2>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button id="themeBtn" class="icon-btn" type="button" title="Chế độ tối">☾</button>
+          <button id="notificationBtn" class="icon-btn badge-wrap" type="button" title="Thông báo">♢<span class="badge">3</span></button>
+          <div class="user-chip">
+            <div class="avatar" id="topAvatar">N</div>
+            <div><b id="topUserName">NeoBank</b><span id="topUserRole">Tài khoản demo</span></div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <section class="page active" id="page-dashboard">
+          <div class="welcome-row">
+            <div><span class="eyebrow">TÀI CHÍNH CỦA BẠN</span><h1 id="welcomeTitle">Xin chào 👋</h1><p class="muted">Đây là tình hình tài chính mô phỏng của bạn hôm nay.</p></div>
+            <button class="primary-btn" data-go="transfer">+ Chuyển tiền</button>
+          </div>
+
+          <div class="stats-grid">
+            <article class="balance-card gradient-card">
+              <div class="card-top"><span>Tổng số dư</span><button id="toggleBalanceBtn" class="ghost-icon" type="button">◉</button></div>
+              <h2 id="totalBalance">125.480.000 ₫</h2>
+              <div class="trend">↗ 8,4% <span>so với tháng trước</span></div>
+              <div class="balance-meta"><div><span>Tài khoản thanh toán</span><b id="checkingBalance">86.780.000 ₫</b></div><div><span>Tiết kiệm</span><b id="savingsBalance">38.700.000 ₫</b></div></div>
+            </article>
+
+            <article class="stat-card"><div class="stat-icon">↙</div><span>Thu nhập tháng</span><h3 id="monthlyIncome">32.500.000 ₫</h3><p class="positive">+12,2% tháng này</p></article>
+            <article class="stat-card"><div class="stat-icon">↗</div><span>Chi tiêu tháng</span><h3 id="monthlySpending">14.280.000 ₫</h3><p class="negative">+3,1% tháng này</p></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-head"><div><h3>Dòng tiền 6 tháng</h3><p class="muted">Thu nhập và chi tiêu mô phỏng</p></div><select id="chartRange"><option>6 tháng</option><option>3 tháng</option></select></div>
+              <div class="chart" id="cashflowChart"></div>
+              <div class="chart-legend"><span><i class="dot income-dot"></i> Thu nhập</span><span><i class="dot expense-dot"></i> Chi tiêu</span></div>
+            </article>
+
+            <article class="panel spend-panel">
+              <div class="panel-head"><div><h3>Chi tiêu theo nhóm</h3><p class="muted">Tháng hiện tại</p></div></div>
+              <div class="donut-wrap">
+                <div class="donut"><div><b>14,28tr</b><span>Tổng chi</span></div></div>
+                <div class="category-list">
+                  <div><span><i class="dot c1"></i> Mua sắm</span><b>34%</b></div>
+                  <div><span><i class="dot c2"></i> Ăn uống</span><b>26%</b></div>
+                  <div><span><i class="dot c3"></i> Di chuyển</span><b>18%</b></div>
+                  <div><span><i class="dot c4"></i> Khác</span><b>22%</b></div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-head"><div><h3>Giao dịch gần đây</h3><p class="muted">5 giao dịch mới nhất</p></div><button class="link-btn" data-go="transactions">Xem tất cả</button></div>
+            <div id="recentTransactions" class="transaction-list"></div>
+          </article>
+        </section>
+
+        <section class="page" id="page-transfer">
+          <div class="page-intro"><span class="eyebrow">CHUYỂN TIỀN</span><h1>Chuyển tiền nhanh</h1><p class="muted">Giao dịch chỉ được mô phỏng trong trình duyệt của bạn.</p></div>
+          <div class="transfer-layout">
+            <form id="transferForm" class="panel form-panel">
+              <h3>Thông tin người nhận</h3>
+              <label>Ngân hàng
+                <select id="bankSelect" required>
+                  <option value="">Chọn ngân hàng</option><option>Vietcombank</option><option>Techcombank</option><option>MB Bank</option><option>ACB</option><option>VPBank</option><option>NeoBank</option>
+                </select>
+              </label>
+              <label>Số tài khoản
+                <input id="accountNumber" type="text" inputmode="numeric" placeholder="Ví dụ: 0123456789" maxlength="16" required />
+              </label>
+              <label>Tên người nhận
+                <input id="recipientName" type="text" placeholder="NGUYEN VAN A" required />
+              </label>
+              <label>Số tiền
+                <div class="money-input"><input id="transferAmount" type="number" min="1000" step="1000" placeholder="0" required /><span>₫</span></div>
+              </label>
+              <div class="quick-amounts"><button type="button" data-amount="500000">500K</button><button type="button" data-amount="1000000">1 triệu</button><button type="button" data-amount="2000000">2 triệu</button><button type="button" data-amount="5000000">5 triệu</button></div>
+              <label>Nội dung
+                <input id="transferNote" type="text" maxlength="60" value="LE THANH DAT chuyen tien" />
+              </label>
+              <button class="primary-btn full" type="submit">Tiếp tục</button>
+            </form>
+            <aside class="panel transfer-summary">
+              <h3>Tài khoản nguồn</h3>
+              <div class="mini-account"><span>NeoBank Premium</span><b>•••• 8899</b><h3 id="sourceBalance">86.780.000 ₫</h3></div>
+              <div class="summary-row"><span>Phí chuyển tiền</span><b>0 ₫</b></div>
+              <div class="summary-row"><span>Hạn mức còn lại</span><b>100.000.000 ₫</b></div>
+              <div class="notice">🛡️ Không nhập thông tin tài khoản thật vào bản demo.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" id="page-transactions">
+          <div class="page-intro"><span class="eyebrow">LỊCH SỬ</span><h1>Giao dịch</h1><p class="muted">Theo dõi toàn bộ giao dịch mô phỏng.</p></div>
+          <article class="panel">
+            <div class="filters"><input id="transactionSearch" type="search" placeholder="Tìm theo tên hoặc nội dung..." /><select id="transactionFilter"><option value="all">Tất cả</option><option value="in">Tiền vào</option><option value="out">Tiền ra</option></select></div>
+            <div id="allTransactions" class="transaction-list large"></div>
+          </article>
+        </section>
+
+        <section class="page" id="page-cards">
+          <div class="page-intro"><span class="eyebrow">THẺ</span><h1>Quản lý thẻ</h1><p class="muted">Khóa/mở thẻ và xem thông tin thẻ demo.</p></div>
+          <div class="cards-layout">
+            <div class="bank-card" id="visualCard"><div class="bank-card-top"><span>NEOBANK</span><span>VISA</span></div><div class="chip">▦</div><div class="card-number" id="cardNumberDisplay">5429 •••• •••• 8899</div><div class="bank-card-bottom"><div><span>CHỦ THẺ</span><b id="cardHolderName">LE THANH DAT</b></div><div><span>HẾT HẠN</span><b>09/31</b></div></div><div id="cardLockedOverlay" class="locked-overlay hidden">🔒 THẺ ĐANG KHÓA</div></div>
+            <article class="panel card-controls"><h3>Điều khiển thẻ</h3><div class="control-row"><div><b>Khóa thẻ</b><span>Tạm dừng mọi giao dịch thẻ</span></div><label class="switch"><input id="cardLockToggle" type="checkbox"><span></span></label></div><div class="control-row"><div><b>Thanh toán online</b><span>Cho phép thanh toán trên Internet</span></div><label class="switch"><input type="checkbox" checked><span></span></label></div><div class="control-row"><div><b>Thanh toán quốc tế</b><span>Cho phép giao dịch ngoại tệ</span></div><label class="switch"><input type="checkbox"><span></span></label></div><button class="secondary-btn full" id="changePinBtn" type="button">Đổi PIN demo</button></article>
+          </div>
+        </section>
+
+        <section class="page" id="page-savings">
+          <div class="page-intro"><span class="eyebrow">TIẾT KIỆM</span><h1>Mục tiêu tiết kiệm</h1><p class="muted">Theo dõi mục tiêu tài chính cá nhân.</p></div>
+          <div class="savings-grid">
+            <article class="panel goal-card"><div class="goal-icon">📷</div><h3>Thiết bị Studio</h3><p class="muted">Mục tiêu 80.000.000 ₫</p><div class="progress"><span style="width:48%"></span></div><div class="progress-meta"><b>38.700.000 ₫</b><span>48%</span></div></article>
+            <article class="panel goal-card"><div class="goal-icon">✈️</div><h3>Du lịch</h3><p class="muted">Mục tiêu 30.000.000 ₫</p><div class="progress"><span style="width:27%"></span></div><div class="progress-meta"><b>8.100.000 ₫</b><span>27%</span></div></article>
+            <article class="panel add-goal" id="addGoalBtn"><div>＋</div><b>Tạo mục tiêu mới</b><span class="muted">Thêm mục tiêu tiết kiệm demo</span></article>
+          </div>
+        </section>
+
+
+
+        <section class="page" id="page-accounts">
+          <div class="page-intro admin-page-head">
+            <div><span class="eyebrow">QUẢN TRỊ HỆ THỐNG</span><h1>Tài khoản người dùng</h1><p class="muted">Quản lý người dùng, trạng thái tài khoản và số dư trong môi trường demo.</p></div>
+            <button id="createUserBtn" class="primary-btn" type="button">+ Tạo tài khoản</button>
+          </div>
+
+          <div class="admin-stats">
+            <article class="stat-card"><span>Tổng người dùng</span><h3 id="adminUserCount">0</h3><p class="muted">Không tính tài khoản admin</p></article>
+            <article class="stat-card"><span>Đang hoạt động</span><h3 id="adminActiveCount">0</h3><p class="positive">Tài khoản có thể đăng nhập</p></article>
+            <article class="stat-card"><span>Tổng số dư hệ thống</span><h3 id="adminTotalBalance">0 ₫</h3><p class="muted">Thanh toán + tiết kiệm</p></article>
+          </div>
+
+          <article class="panel admin-users-panel">
+            <div class="panel-head admin-toolbar">
+              <div><h3>Danh sách người dùng</h3><p class="muted">Admin có thể chỉnh hồ sơ, số dư và khóa/mở tài khoản.</p></div>
+              <div class="admin-filters">
+                <input id="adminUserSearch" type="search" placeholder="Tìm tên, email, số tài khoản..." />
+                <select id="adminStatusFilter"><option value="all">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khóa</option></select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>Người dùng</th><th>Số tài khoản</th><th>Thanh toán</th><th>Tiết kiệm</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                <tbody id="adminUsersTable"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel admin-audit-panel">
+            <div class="panel-head"><div><h3>Nhật ký quản trị</h3><p class="muted">Các thay đổi quan trọng được ghi lại trên trình duyệt này.</p></div><button id="clearAuditBtn" class="link-btn" type="button">Xóa nhật ký</button></div>
+            <div id="adminAuditList" class="audit-list"></div>
+          </article>
+          <div class="notice admin-demo-warning">⚠️ Quyền admin ở đây chỉ là mô phỏng bằng localStorage. Hệ thống ngân hàng thật phải xác thực phía server, phân quyền RBAC và lưu audit log bất biến.</div>
+        </section>
+
+        <section class="page" id="page-settings">
+          <div class="page-intro"><span class="eyebrow">TÀI KHOẢN</span><h1>Cài đặt</h1><p class="muted">Tùy chỉnh trải nghiệm ứng dụng.</p></div>
+          <div class="settings-grid">
+            <article class="panel"><h3>Hồ sơ</h3><label>Họ và tên<input id="profileName" /></label><label>Email<input id="profileEmail" type="email" /></label><label>Số điện thoại<input id="profilePhone" /></label><button id="saveProfileBtn" class="primary-btn" type="button">Lưu thay đổi</button></article>
+            <article class="panel"><h3>Bảo mật</h3><div class="control-row"><div><b>Xác thực 2 bước</b><span>Mô phỏng bảo mật bổ sung</span></div><label class="switch"><input id="twoFactorToggle" type="checkbox" checked><span></span></label></div><div class="control-row"><div><b>Thông báo đăng nhập</b><span>Nhận cảnh báo khi có phiên mới</span></div><label class="switch"><input type="checkbox" checked><span></span></label></div><button id="resetDataBtn" class="danger-btn full" type="button">Khôi phục dữ liệu demo</button></article>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <button id="modalClose" class="modal-close" type="button">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
